@@ -2,7 +2,6 @@
 ---
 - name: Enable zookeeper services on boot
   become: true
-  command: "systemctl enable {{item}}"
-  with_items:
-    - storm-zookeeper.service
-  
+  service:
+    name: storm-zookeeper
+    enabled: yes

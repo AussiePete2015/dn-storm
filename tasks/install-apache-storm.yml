@@ -1,27 +1,52 @@
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
-- name: Download storm distribution to /tmp
-  become: true
-  get_url:
-    url: "{{storm_url}}"
-    dest: /tmp
-    mode: 0644
-    validate_certs: no
-  environment: "{{environment_vars}}"
+# first, setup a fact that indicates whether or not we're uploading the
+# Apache Storm distribution from a local file on the Ansible node
+- set_fact:
+    install_from_dir: "{{not(local_path is undefined or local_path is none or local_path | trim == '')}}"
+    num_hosts: "{{zookeeper_nodes | length}}"
+# download and unpack the Apache Storm, distribution
+- block:
+  # if we're not installing Storm from a local directory then we're installing
+  # from a repository (either a local repository or the standard Apache Zookeeper
+  # repository)
+  - name: Download storm distribution to /tmp
+    become: true
+    get_url:
+      url: "{{storm_url}}"
+      dest: /tmp
+      mode: 0644
+      validate_certs: no
+    environment: "{{environment_vars}}"
+  - set_fact:
+      local_filename: "{{storm_url | basename}}"
+  when: not(install_from_dir)
+# otherwise, if we're installing from a local file on the Ansible node
+# that we're running this playbook from, copy over the file from the Ansible node
+# to a temporary directory and and unpack the Apache Zookeeper distribution from
+# that file
+- block:
+  - name: Copy storm file from a local directory to /tmp
+    copy:
+      src: "{{local_path}}/{{storm_url | basename}}"
+      dest: "/tmp"
+  - set_fact:
+      local_filename: "{{storm_url | basename}}"
+  when: install_from_dir
+# now that our file is downloaded (or uploaded, as the case may be)
+# unpack it into the installation directory
 - name: Create "{{storm_dir}}"
   become: true
   file:
     path: "{{storm_dir}}"
     state: directory
-    owner: storm
-    group: storm
+    owner: "{{storm_user}}"
+    group: "{{storm_group}}"
 - name: Unpack storm distribution into "{{storm_dir}}"
   become: true
+  become_user: "{{storm_user}}"
   unarchive:
     copy: no
-    src: "/tmp/apache-storm-{{storm_version}}.tar.gz"
+    src: "/tmp/{{local_filename}}"
     dest: "{{storm_dir}}"
     extra_opts: [ "--strip-components=1" ]
-    owner: storm
-    group: storm
-    
