@@ -1,11 +1,16 @@
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
-- include: add-storm-user.yml static=no tags=install,storm
-- include: install-apache-zookeeper.yml static=no tags=install,storm
-- include: install-apache-storm.yml static=no tags=install,storm
-- include: create-zookeeper-services.yml static=no tags=install,storm
-- include: create-storm-services.yml static=no tags=install,storm
-- include: enable-zookeeper-services.yml static=no tags=service-mgmt,storm
-- include: enable-storm-services.yml static=no tags=service-mgmt,storm
-- include: start-zookeeper-services.yml static=no tags=service-mgmt,storm
-- include: start-storm-services.yml static=no tags=service-mgmt,storm
+- include: add-storm-user.yml static=no
+- include: install-apache-storm.yml static=no
+- include: install-apache-zookeeper.yml static=no
+  when: (zk_nodes | default([])) == []
+- include: configure-storm-nodes.yml static=no
+- include: create-zookeeper-services.yml static=no
+  when: (zk_nodes | default([])) == []
+- include: create-storm-services.yml static=no
+- include: enable-zookeeper-services.yml static=no
+  when: (zk_nodes | default([])) == []
+- include: enable-storm-services.yml static=no
+- include: start-zookeeper-services.yml static=no
+  when: (zk_nodes | default([])) == []
+- include: start-storm-services.yml static=no

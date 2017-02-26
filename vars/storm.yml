@@ -4,13 +4,28 @@
 # Apache Storm
 ---
 application: storm
-storm_version: "1.0.2"
+storm_version: "1.0.3"
 storm_url: "http://www-us.apache.org/dist/storm/apache-storm-{{storm_version}}/apache-storm-{{storm_version}}.tar.gz"
 storm_dir: "/opt/apache-storm"
 storm_package_list: ["java-1.8.0-openjdk", "java-1.8.0-openjdk-devel", "net-tools"]
 storm_zookeeper_servers: ["localhost"]
 storm_local_dir: "storm-local"
+storm_iface: eth0
 nimbus_seeds: ["localhost"]
 zookeeper_version: "3.4.9"
 zookeeper_url: "http://www-us.apache.org/dist/zookeeper/zookeeper-{{zookeeper_version}}/zookeeper-{{zookeeper_version}}.tar.gz"
 zookeeper_dir: "/opt/apache-zookeeper"
+# the directory where the Zookeeper (in-memory) database snapshots will be written
+zookeeper_data_dir: /var/lib
+# the directory where Zookeeper transaction log will be written
+zookeeper_data_log_dir: /var/log
+# the username and group that should be used when installing and running Storm
+storm_user: "storm"
+storm_group: "storm"
+# define a few defaults that are used when tuning the Storm cluster
+nimbus_childopts: "-Xmx1024m"
+ui_port: 9797
+ui_childopts: "-Xmx768m"
+worker_childopts: "-Xmx768m"
+# path used to access private keys (defaults to the current working directory)
+private_key_path: "."

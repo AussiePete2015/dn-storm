@@ -2,9 +2,10 @@
 ---
 - name: Enable storm services on boot
   become: true
-  command: "systemctl enable {{item}}"
+  service:
+    name: "{{item}}"
+    enabled: yes
   with_items:
-    - storm-nimbus.service
-    - storm-supervisor.service
-    - storm-ui.service
-  
+    - storm-nimbus
+    - storm-supervisor
+    - storm-ui

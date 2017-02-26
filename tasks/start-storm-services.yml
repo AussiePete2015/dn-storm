@@ -5,16 +5,22 @@
   command: sleep 10
 - name: Start storm nimbus
   become: true
-  command: systemctl start storm-nimbus.service
+  service:
+    name: storm-nimbus
+    state: restarted
 - name: Pause before starting storm supervisor service
   become: true
   command: sleep 10
 - name: Start storm supervisor
   become: true
-  command: systemctl start storm-supervisor.service
+  service:
+    name: storm-supervisor
+    state: restarted
 - name: Pause before starting storm ui service
   become: true
   command: sleep 10
 - name: Start storm ui service
   become: true
-  command: systemctl start storm-ui.service
+  service:
+    name: storm-ui
+    state: restarted

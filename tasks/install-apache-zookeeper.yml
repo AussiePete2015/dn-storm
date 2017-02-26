@@ -1,33 +1,58 @@
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
-- name: Download zookeeper distribution to /tmp
-  become: true
-  get_url:
-    url: "{{zookeeper_url}}"
-    dest: /tmp
-    mode: 0644
-    validate_certs: no
-  environment: "{{environment_vars}}"
+# Download and unpack the Apache Zookeeper distribution.  Note; the
+# `install_from_dir` fact that indicates whether or not we're
+# uploading the Apache Zookeeper distribution from a local file on the
+# Ansible node was set when the `install-apache-storm.yml` file was
+# included earlier
+- block:
+  # if we're not installing Zookeeper from a local directory then we're installing
+  # from a repository (either a local repository or the standard Apache Zookeeper
+  # repository)
+  - name: Download zookeeper distribution to /tmp
+    become: true
+    get_url:
+      url: "{{zookeeper_url}}"
+      dest: /tmp
+      mode: 0644
+      validate_certs: no
+    environment: "{{environment_vars}}"
+  - set_fact:
+      local_filename: "{{zookeeper_url | basename}}"
+  when: not(install_from_dir)
+# otherwise, if we're installing from a local file on the Ansible node
+# that we're running this playbook from, copy over the file from the Ansible node
+# to a temporary directory and and unpack the Apache Zookeeper distribution from
+# that file
+- block:
+  - name: Copy zookeeper files from a local directory to /tmp
+    copy:
+      src: "{{local_path}}/{{zookeeper_url | basename}}"
+      dest: "/tmp"
+  - set_fact:
+      local_filename: "{{zookeeper_url | basename}}"
+  when: install_from_dir
+# now that our file is downloaded (or uploaded, as the case may be)
+# unpack it into the installation directory
 - name: Create "{{zookeeper_dir}}"
   become: true
   file:
     path: "{{zookeeper_dir}}"
     state: directory
-    owner: storm
-    group: storm
-- name: Unpack storm distribution into "{{zookeeper_dir}}"
+    owner: "{{storm_user}}"
+    group: "{{storm_group}}"
+- name: Unpack zookeeper distribution into "{{zookeeper_dir}}"
   become: true
+  become_user: "{{storm_user}}"
   unarchive:
     copy: no
-    src: "/tmp/zookeeper-{{zookeeper_version}}.tar.gz"
+    src: "/tmp/{{local_filename}}"
     dest: "{{zookeeper_dir}}"
     extra_opts: [ "--strip-components=1" ]
-    owner: storm
-    group: storm
 - name: Create apache-zookeeper configuration file
   become: true
+  become_user: "{{storm_user}}"
   template:
-    src: "../templates/zoo.cfg"
-    dest: /opt/apache-zookeeper/conf/
+    src: "zoo-cfg.j2"
+    dest: "{{zookeeper_dir}}/conf/"
     mode: 0644
-    

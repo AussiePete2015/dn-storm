@@ -3,13 +3,13 @@
 - name: Create storm group
   become: true
   group:
-    name: storm
+    name: "{{storm_group}}"
     system: yes
 - name: Create storm user
   become: true
   user:
-    name: storm
-    group: storm
+    name: "{{storm_user}}"
+    group: "{{storm_group}}"
     createhome: no
     system: yes
     

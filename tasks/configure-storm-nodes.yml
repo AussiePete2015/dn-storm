@@ -1,0 +1,77 @@
+# (c) 2017 DataNexus Inc.  All Rights Reserved
+---
+- set_fact:
+    strm_nodes: "{{storm_nodes | map('extract', hostvars, [('ansible_' + storm_iface), 'ipv4', 'address']) | list}}"
+- block:
+  - name: Configure storm to use ane external zookeeper cluster (if defined)
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^# storm.zookeeper.servers:"
+      line: "storm.zookeeper.servers:"
+  - name: add the zookeeper ensemble's addresses
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      insertafter: "^storm.zookeeper.servers:"
+      line: "    - \"{{item}}\""
+    with_items: "{{zk_nodes}}"
+  become: true
+  become_user: "{{storm_user}}"
+  when: (zk_nodes | default([])) != []
+- name: Configure storm cluster (if more than one storm node)
+  lineinfile:
+    dest: "{{storm_dir}}/conf/storm.yaml"
+    regexp: "^# nimbus.seeds:"
+    line: "nimbus.seeds: [\"{{strm_nodes | join('\", \"')}}\"]"
+  become: true
+  become_user: "{{storm_user}}"
+  when: (strm_nodes | length) > 1
+# if a storm_data_dir value was defined, then ensure that directory
+# exists and configure Storm to use it
+- block:
+  - name: Ensure that the storm.local.dir directory exists
+    file:
+      path: "{{storm_data_dir}}/storm"
+      state: directory
+      owner: "{{storm_user}}"
+      group: "{{storm_group}}"
+  - name: Setup the storm.local.dir to reference data directory
+    become_user: "{{storm_user}}"
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*)storm.local.dir:"
+      line: "storm.local.dir: {{storm_data_dir}}/storm"
+  become: true
+  when: not (storm_data_dir is undefined or storm_data_dir is none or storm_data_dir | trim == '')
+# and set some common configuration options (using values defined
+# as part of the playbook run)
+# ui.host: 0.0.0.0
+# ui.port: 8080
+- block:
+  - name: Setup nimbus.childopts value for storm node(s)
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*)nimbus.childopts:"
+      line: "nimbus.childopts: {{nimbus_childopts}}"
+    when: not (nimbus_childopts is undefined or nimbus_childopts is none or nimbus_childopts | trim == '')
+  - name: Set UI host for storm node(s)
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*)ui.host:"
+      line: "ui.host: {{iface_addr}}"
+  - name: Setup UI options for storm node(s)
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*){{item.key}}:"
+      line: "{{item.key}}: {{item.value}}"
+    when: not (item.value is undefined or item.value is none or item.value | trim == '')
+    with_dict:
+      ui.port: "{{ui_port}}"
+      ui.childopts: "{{ui_childopts}}"
+  - name: Setup worker.childopts value for storm node(s)
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*)worker.childopts:"
+      line: "worker.childopts: {{worker_childopts}}"
+    when: not (worker_childopts is undefined or worker_childopts is none or worker_childopts | trim == '')
+  become: true
+  become_user: "{{storm_user}}"
