@@ -53,6 +53,11 @@
       regexp: "^(.*)nimbus.childopts:"
       line: "nimbus.childopts: {{nimbus_childopts}}"
     when: not (nimbus_childopts is undefined or nimbus_childopts is none or nimbus_childopts | trim == '')
+  - name: Set local hostname the storm node(s) should report
+    lineinfile:
+      dest: "{{storm_dir}}/conf/storm.yaml"
+      regexp: "^(.*)storm.local.hostname:"
+      line: "storm.local.hostname: {{iface_addr}}"
   - name: Set UI host for storm node(s)
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"
