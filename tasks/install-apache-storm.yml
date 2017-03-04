@@ -30,6 +30,7 @@
     copy:
       src: "{{local_path}}/{{storm_url | basename}}"
       dest: "/tmp"
+      mode: 0644
   - set_fact:
       local_filename: "{{storm_url | basename}}"
   when: install_from_dir
