@@ -81,11 +81,11 @@ optparse = OptionParser.new do |opts|
     options[:local_path] = local_path.gsub(/^=/,'')
   end
 
-  options[:yum_repo_addr] = nil
-  opts.on( '-y', '--yum-repo-host REPO_HOST', 'Local yum repository hostname/address' ) do |yum_repo_addr|
+  options[:yum_repo_url] = nil
+  opts.on( '-y', '--yum-url URL', 'Local yum repository URL' ) do |yum_repo_url|
     # while parsing, trim an '=' prefix character off the front of the string if it exists
-    # (would occur if the value was passed using an option flag like '-y=192.168.1.128')
-    options[:yum_repo_addr] = yum_repo_addr.gsub(/^=/,'')
+    # (would occur if the value was passed using an option flag like '-y=http://192.168.1.128/centos')
+    options[:yum_repo_url] = yum_repo_url.gsub(/^=/,'')
   end
 
   options[:storm_data_dir] = nil
@@ -225,10 +225,9 @@ if provisioning_command || ip_required
   end
 end
 
-# if a yum repository address was passed in, check and make sure it's a valid
-# IPv4 address
-if options[:yum_repo_addr] && !(options[:yum_repo_addr] =~ Resolv::IPv4::Regex)
-  print "ERROR; input yum repository address '#{options[:yum_repo_addr]}' is not a valid IP address\n"
+# if a yum repository address was passed in, check and make sure it's a valid URL
+if options[:yum_repo_url] && !(options[:yum_repo_url] =~ URI::regexp)
+  print "ERROR; input yum repository URL '#{options[:yum_repo_url]}' is not a valid URL\n"
   exit 6
 end
 
@@ -301,7 +300,7 @@ if storm_addr_array.size > 0
                 proxy_password: proxy_password
               },
               storm_iface: "eth1",
-              yum_repo_addr: options[:yum_repo_addr],
+              yum_repo_url: options[:yum_repo_url],
               local_path: options[:local_path],
               host_inventory: storm_addr_array,
               reset_proxy_settings: options[:reset_proxy_settings],

@@ -162,8 +162,8 @@
       iface_name: "{{storm_iface}}"
     - role: setup-web-proxy
     - role: add-local-repository
-      yum_repository: "{{yum_repo_addr}}"
-      when: yum_repo_addr is defined
+      yum_repository: "{{yum_repo_url}}"
+      when: yum_repo_url is defined
     - role: install-packages
       package_list: "{{combined_package_list}}"
     - dn-storm

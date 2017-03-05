@@ -29,6 +29,7 @@
     copy:
       src: "{{local_path}}/{{zookeeper_url | basename}}"
       dest: "/tmp"
+      mode: 0644
   - set_fact:
       local_filename: "{{zookeeper_url | basename}}"
   when: install_from_dir
