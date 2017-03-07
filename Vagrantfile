@@ -304,7 +304,7 @@ if storm_addr_array.size > 0
               local_path: options[:local_path],
               host_inventory: storm_addr_array,
               reset_proxy_settings: options[:reset_proxy_settings],
-              inventory_type: "static"
+              cloud: "vagrant"
             }
             # if defined, set the 'extra_vars[:storm_url]' value to the value that was passed in on
             # the command-line (eg. "https://10.0.2.2/fusion-2.4.4.tar.gz")

@@ -57,12 +57,12 @@
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"
       regexp: "^(.*)storm.local.hostname:"
-      line: "storm.local.hostname: {{iface_addr}}"
+      line: "storm.local.hostname: {{storm_addr}}"
   - name: Set UI host for storm node(s)
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"
       regexp: "^(.*)ui.host:"
-      line: "ui.host: {{iface_addr}}"
+      line: "ui.host: {{storm_addr}}"
   - name: Setup UI options for storm node(s)
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"

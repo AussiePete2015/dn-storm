@@ -1,140 +1,32 @@
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
-# If we're running this command for to build a cluster in an AWS or
-# OpenStack cloud, then use the `ec2` or `openstack` command to (depending
-# on the `cloud` we're deploying to) gather the dynamic inventory information
-# that we need to build our Zookeeper host group (and build it)
-- name: Create Zookeeper host group from AWS or OpenStack inventory
+# First, build our storm and zookeeper host groups
+- name: Create storm and zookeeper host groups
   hosts: "{{host_inventory}}"
   gather_facts: no
   tasks:
-    # run these commands to add the zookeeper host group for an aws cloud
-    - block:
-      - name: Run ec2 command to gather inventory information
-        local_action: "shell common-utils/inventory/aws/ec2"
-        register: di_output
-      - set_fact:
-          di_output_json: "{{di_output.stdout | from_json}}"
-      - set_fact:
-          cloud_nodes: "{{di_output_json | json_query('tag_Cloud_' + cloud)}}"
-          tenant_nodes: "{{di_output_json | json_query('tag_Tenant_' + tenant)}}"
-          project_nodes: "{{di_output_json | json_query('tag_Project_' + project)}}"
-          domain_nodes: "{{di_output_json | json_query('tag_Domain_' + domain)}}"
-          application_nodes: "{{di_output_json | json_query('tag_Application_zookeeper')}}"
-      - set_fact:
-          zookeeper_nodes: "{{cloud_nodes | intersect(tenant_nodes) | intersect(project_nodes) | intersect(domain_nodes) | intersect(application_nodes)}}"
-      - add_host:
-          name: "{{item}}"
-          groups: "zookeeper"
-          ansible_ssh_user: "{{ansible_user}}"
-          ansible_ssh_private_key_file: "{{private_key_path}}/{{cloud}}-{{di_output_json | json_query('_meta.hostvars.\"' + item + '\".ec2_key_name')}}-private-key.pem"
-        with_items: "{{zookeeper_nodes}}"
-      when: not (inventory_type is undefined or inventory_type == "static") and cloud == "aws"
-      run_once: true
-    # or run these commands to add the zookeeper host group for an osp cloud
-    - block:
-      - name: Run openstack command to gather inventory information
-        local_action: "shell common-utils/inventory/osp/openstack"
-        register: di_output
-      - set_fact:
-          di_output_json: "{{di_output.stdout | from_json}}"
-      - set_fact:
-          cloud_nodes: "{{(di_output_json | json_query('[\"meta-Cloud_' + cloud + '\"]')).0}}"
-          tenant_nodes: "{{(di_output_json | json_query('[\"meta-Tenant_' + tenant + '\"]')).0}}"
-          project_nodes: "{{(di_output_json | json_query('[\"meta-Project_' + project + '\"]')).0}}"
-          domain_nodes: "{{(di_output_json | json_query('[\"meta-Domain_' + domain + '\"]')).0}}"
-          application_nodes: "{{(di_output_json | json_query('[\"meta-Application_zookeeper\"]')).0}}"
-      - set_fact:
-          zookeeper_nodes: "{{cloud_nodes | intersect(tenant_nodes) | intersect(project_nodes) | intersect(domain_nodes) | intersect(application_nodes)}}"
-      - add_host:
-          name: "{{item}}"
-          groups: "zookeeper"
-          ansible_ssh_user: "{{ansible_user}}"
-          ansible_ssh_private_key_file: "{{private_key_path}}/{{di_output_json | json_query('_meta.hostvars.\"' + item + '\".openstack.key_name')}}.pem"
-        with_items: "{{zookeeper_nodes}}"
-      when: not (inventory_type is undefined or inventory_type == "static") and cloud == "osp"
-      run_once: true
+    - include_role:
+        name: build-app-host-groups
+      vars:
+        host_group_list:
+          - name: storm
+          - name: zookeeper
+      when: cloud == 'aws' or cloud == 'osp'
+    - include_role:
+        name: build-app-host-groups
+      vars:
+        host_group_list:
+          - { name: storm, node_list: "{{host_inventory}}" }
+          - { name: zookeeper, inventory: "{{zookeeper_inventory}}", node_list: "{{zookeeper_nodes}}" }
+      when: cloud == "vagrant"
 
-# If we're running this command for to build a cluster in an AWS or
-# OpenStack cloud, then use the `ec2` or `openstack` command to (depending
-# on the `cloud` we're deploying to) gather the dynamic inventory information
-# that we need to build our Storm host group (and build it)
-- name: Create Kafka host group from AWS or OpenStack inventory
-  hosts: "{{host_inventory}}"
-  gather_facts: no
-  tasks:
-    # run these commands to add the Storm host group for an aws cloud
-    - block:
-      - set_fact:
-          application_nodes: "{{di_output_json | json_query('tag_Application_' + application)}}"
-      - set_fact:
-          storm_nodes: "{{cloud_nodes | intersect(tenant_nodes) | intersect(project_nodes) | intersect(domain_nodes) | intersect(application_nodes)}}"
-      - add_host:
-          name: "{{item}}"
-          groups: "storm"
-          ansible_ssh_user: "{{ansible_user}}"
-          ansible_ssh_private_key_file: "{{private_key_path}}/{{cloud}}-{{di_output_json | json_query('_meta.hostvars.\"' + item + '\".ec2_key_name')}}-private-key.pem"
-        with_items: "{{storm_nodes}}"
-      when: not (inventory_type is undefined or inventory_type == "static") and cloud == "aws"
-      run_once: true
-    # or run these commands to add the Storm host group for an osp cloud
-    - block:
-      - set_fact:
-          application_nodes: "{{(di_output_json | json_query('[\"meta-Application_' + application + '\"]')).0}}"
-      - set_fact:
-          storm_nodes: "{{cloud_nodes | intersect(tenant_nodes) | intersect(project_nodes) | intersect(domain_nodes) | intersect(application_nodes)}}"
-      - add_host:
-          name: "{{item}}"
-          groups: "storm"
-          ansible_ssh_user: "{{ansible_user}}"
-          ansible_ssh_private_key_file: "{{private_key_path}}/{{di_output_json | json_query('_meta.hostvars.\"' + item + '\".openstack.key_name')}}.pem"
-        with_items: "{{storm_nodes}}"
-      when: not (inventory_type is undefined or inventory_type == "static") and cloud == "osp"
-      run_once: true
-
-# Otherwise, build our Zookeeper host group from the static inventory
-# information that was passed in
-- name: Create Zookeeper host group from input zookeeper_nodes list
-  hosts: "{{host_inventory}}"
-  gather_facts: no
-  tasks:
-    - add_host:
-        name: "{{item}}"
-        groups: "zookeeper"
-        ansible_ssh_host: "{{((((zookeeper_inventory | default({}))[item] | default({})).ansible_ssh_host) | default(item))}}"
-        ansible_ssh_port: "{{((((zookeeper_inventory | default({}))[item] | default({})).ansible_ssh_port) | default(22))}}"
-        ansible_ssh_user: "{{((((zookeeper_inventory | default({}))[item] | default({})).ansible_ssh_user) | default(ansible_user))}}"
-        ansible_ssh_private_key_file: "{{((((zookeeper_inventory | default({}))[item] | default({})).ansible_ssh_private_key_file) | default(ansible_ssh_private_key_file))}}"
-      with_items: "{{zookeeper_nodes | default([])}}"
-      when: inventory_type == "static"
-      run_once: true
-
-
-# And build our Storm host group from the static inventory
-# information that was passed in
-- name: Create Storm host group from input host_inventory list
-  hosts: "{{host_inventory}}"
-  gather_facts: no
-  tasks:
-    - block:
-      - set_fact:
-          storm_nodes: "{{host_inventory}}"
-      - add_host:
-          name: "{{item}}"
-          groups: "storm"
-        with_items: "{{storm_nodes}}"
-      when: inventory_type == "static"
-      run_once: true
-
-# Collect some Zookeeper related facts and determine the "private" IP addresses of
-# the nodes in the Zookeeper ensemble (from their "public" IP addresses and the `storm_iface`
-# variable that was passed in as part of this playbook run) if a list of "public"  Zookeeper
-# IP addresses was passed in.
+# Collect some Zookeeper related facts
 - name: Gather facts from Zookeeper host group (if defined)
   hosts: zookeeper
   tasks: []
 
-# is more than one node passed in, those nodes will be configured as a single Storm cluster)
+# and configure our Storm nodes (note that if more than one node is passed in,
+# those nodes will be configured as a single Storm cluster)
 - name: Install/configure Storm server(s)
   hosts: storm
   gather_facts: no
@@ -143,10 +35,10 @@
   vars:
     - combined_package_list: "{{ (default_packages|default([])) | union(storm_package_list) | union((install_packages_by_tag|default({})).storm|default([])) }}"
   # First, determine what the "private" IP addresses of the Zookeeper ensemble are from
-  # the "public" IP addresses that were passed in for this ensemble and the interface name
+  # the meta-data we gathered above in the `hostvars` hash map and the interface name
   # that we'll be configuring Storm to listen on.  Once that's done, ensure that all of the
   # interfaces on the Storm node(s) are up by restarting the network, then gather the facts
-  # from our Storm node(s)
+  # from our Storm node(s) and deploy Storm to those nodes (configuring them appropriately)
   pre_tasks:
     - set_fact:
         zk_nodes: "{{zookeeper_nodes | map('extract', hostvars, [('ansible_' + storm_iface), 'ipv4', 'address']) | list}}"
@@ -160,6 +52,7 @@
   roles:
     - role: get-iface-addr
       iface_name: "{{storm_iface}}"
+      as_fact: "storm_addr"
     - role: setup-web-proxy
     - role: add-local-repository
       yum_repository: "{{yum_repo_url}}"
