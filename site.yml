@@ -17,7 +17,7 @@
       vars:
         host_group_list:
           - { name: storm, node_list: "{{host_inventory}}" }
-          - { name: zookeeper, inventory: "{{zookeeper_inventory}}", node_list: "{{zookeeper_nodes}}" }
+          - { name: zookeeper, inventory: "{{zookeeper_inventory | default({})}}", node_list: "{{zookeeper_nodes | default([])}}" }
       when: cloud == "vagrant"
 
 # Collect some Zookeeper related facts
