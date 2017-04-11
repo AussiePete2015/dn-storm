@@ -13,7 +13,7 @@
       dest: "{{storm_dir}}/conf/storm.yaml"
       insertafter: "^storm.zookeeper.servers:"
       line: "    - \"{{item}}\""
-    with_items: "{{zk_nodes}}"
+    with_items: "{{zk_nodes | default([])}}"
   become: true
   become_user: "{{storm_user}}"
   when: (zk_nodes | default([])) != []

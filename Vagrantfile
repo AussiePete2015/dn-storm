@@ -77,7 +77,7 @@ optparse = OptionParser.new do |opts|
   options[:local_path] = nil
   opts.on( '-l', '--local-path PATH', 'Local directory containing Storm/Zookeeper distributions' ) do |local_path|
     # while parsing, trim an '=' prefix character off the front of the string if it exists
-    # (would occur if the value was passed using an option flag like '-l=/tmp/fusion-2.4.4.tar.gz')
+    # (would occur if the value was passed using an option flag like '-l=/tmp/apache-storm-1.0.3.tar.gz')
     options[:local_path] = local_path.gsub(/^=/,'')
   end
 
@@ -89,10 +89,17 @@ optparse = OptionParser.new do |opts|
   end
 
   options[:storm_data_dir] = nil
-  opts.on( '-r', '--remote-data-dir DATA_DIR', 'Data directory for Storm' ) do |storm_data_dir|
+  opts.on( '-d', '--data DATA_DIR', 'Data directory for Storm' ) do |storm_data_dir|
     # while parsing, trim an '=' prefix character off the front of the string if it exists
     # (would occur if the value was passed using an option flag like '-r="/data"')
     options[:storm_data_dir] = storm_data_dir.gsub(/^=/,'')
+  end
+
+  options[:local_vars_file] = nil
+  opts.on( '-f', '--local-vars-file FILE', 'Local variables file' ) do |local_vars_file|
+    # while parsing, trim an '=' prefix character off the front of the string if it exists
+    # (would occur if the value was passed using an option flag like '-f=/tmp/local-vars-file.yml')
+    options[:local_vars_file] = local_vars_file.gsub(/^=/,'')
   end
 
   options[:reset_proxy_settings] = false
@@ -135,6 +142,12 @@ end
 
 if options[:local_path] && !File.directory?(options[:local_path])
   print "ERROR; input local path '#{options[:local_path]}' is not a directory\n"
+  exit 3
+end
+
+# if a local variables file was passed in, check and make sure it's a valid filename
+if options[:local_vars_file] && !File.file?(options[:local_vars_file])
+  print "ERROR; input local variables file '#{options[:local_vars_file]}' is not a local file\n"
   exit 3
 end
 
@@ -181,7 +194,7 @@ if provisioning_command || ip_required
       # when provisioning a multi-node Storm cluster, we **must** have an associated zookeeper
       # ensemble consisting of an odd number of nodes greater than three, but less than seven
       # (any other topology is not supported, so an error is thrown)
-      if storm_addr_array.size > 1 && !no_zk_required_command
+      if provisioning_command && storm_addr_array.size > 1 && !no_zk_required_command
         if !options[:zookeeper_list]
           print "ERROR; A set of IP addresses must be supplied (using the `-z, --zookeeper-list` flag)\n"
           print "       that point to an existing Zookeeper ensemble when provisioning a Storm cluster\n"
@@ -307,7 +320,7 @@ if storm_addr_array.size > 0
               cloud: "vagrant"
             }
             # if defined, set the 'extra_vars[:storm_url]' value to the value that was passed in on
-            # the command-line (eg. "https://10.0.2.2/fusion-2.4.4.tar.gz")
+            # the command-line (eg. "https://10.0.2.2/apache-storm-1.0.3.tar.gz")
             if options[:storm_url]
               ansible.extra_vars[:storm_url] = options[:storm_url]
             end
@@ -322,6 +335,11 @@ if storm_addr_array.size > 0
             # in on the command-line
             if options[:storm_data_dir]
               ansible.extra_vars[:storm_data_dir] = options[:storm_data_dir]
+            end
+            # if defined, set the 'extra_vars[:local_vars_file]' value to the value that was passed in
+            # on the command-line (eg. "/tmp/local-vars-file.yml")
+            if options[:local_vars_file]
+              ansible.extra_vars[:local_vars_file] = options[:local_vars_file]
             end
             # if a zookeeper list was passed in and we're deploying more than one Storm,
             # node, then pass the values in that list through as an extra variable (for
