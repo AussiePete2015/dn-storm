@@ -11,11 +11,10 @@ When we are performing a multi-node deployment, then the nodes that make up the 
 
 ```bash
 $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
-    -z="192.168.34.18,192.168.34.19,192.168.34.20" \
     -i='./zookeeper_inventory' up
 ```
 
-This command will create a three-node Storm cluster, configuring those nodes to work with the associated Zookeeper ensemble (which has been passed in using the `-z, --zookeeper-list` flag). Note that a third argument (the `-i, --zk-inventory-file` command-line argument) must also be included in this command. That argument is used to pass in a reference to the location of a static inventory file containing the information needed to connect to the nodes in the Zookeeper ensemble (so that the playbook can gather facts about those nodes to configure the Storm nodes to talk to them correctly). If either of these two arguments are not provided when building a multi-node cluster, or if the values passed in by either of them are not valid values, then an error will be thrown by the `vagrant` command.
+This command will create a three-node Storm cluster, configuring those nodes to work with the Zookeeper ensemble described in the static inventory that we are passing into the `vagrant ... up` command shown here using the `-i, --inventory-file` flag. The argument passed in using this flag **must** point to an Ansible (static) inventory file containing the information needed to connect to the nodes in that Zookeeper ensemble (so that the playbook can gather facts about those nodes to configure the Storm nodes to talk to them correctly). If this second inventory file is not provided when building a multi-node cluster, or if the file passed in does not describe a valid Zookeeper ensemble (one with an odd number of nodes, where the number of nodes is between three and seven, and where none of the nodes in that cluster are also being used as part of the Storm cluster we are deploying here), then an error will be thrown by the `vagrant` command.
 
 In terms of how it all works, the [Vagrantfile](../Vagrantfile) is written in such a way that the following sequence of events occurs when the `vagrant ... up` command shown above is run:
 
@@ -43,7 +42,6 @@ To provision the machines that were created above and configure those machines a
 
 ```bash
 $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
-    -z="192.168.34.18,192.168.34.19,192.168.34.20" \
     -i='./zookeeper_inventory' provision
 ```
 
@@ -53,8 +51,7 @@ That command will attach to the named instances and run the playbook in this rep
 While the commands shown above will install Storm with a reasonable, default configuration from a standard location, there are additional command-line parameters that can be used to control the deployment process triggered by a `vagrant ... up` or `vagrant ... provision` command. Here is a complete list of the command-line flags that can be supported by the [Vagrantfile](../Vagrantfile) in this repository:
 
 * **`-s, --storm-list`**: the Storm address list; this is the list of nodes that will be created and provisioned, either by a single `vagrant ... up` command or by a `vagrant ... up --no-provision` command followed by a `vagrant ... provision` command; this command-line flag **must** be provided for almost every `vagrant` command supported by the [Vagrantfile](../Vagrantfile) in this repository
-* **`-z, --zookeeper-list`**: a comma-separated list of the nodes that make up the associated Zookeeper ensemble; this argument **must** be provided for any `vagrant` commands that involve provisioning of the instances that make up a Storm cluster
-* **`-i, --zk-inventory-file`**: the path to a static inventory file containing the parameters needed to connect to the nodes that make up the associated Zookeeper ensemble; this argument **must** be provided for any `vagrant` commands that involve provisioning of the instances that make up a Storm cluster
+* **`-i, --inventory-file`**: the path to a static inventory file containing the parameters needed to connect to the nodes that make up the associated Zookeeper ensemble; this argument **must** be provided for any `vagrant` commands that involve provisioning of the instances that make up a Storm cluster
 * **`-p, --path`**: the path that the distribution should be unpacked into; defaults to `/opt/apache-storm` 
 * **`-u, --url`**: the URL that the Apache Storm distribution should be downloaded from; can be used to override the default URL used to to download the gzipped tarfile containing the Apache Storm distribution for situations with limited (or no) internet access
 * **`-l, --local-path`**: the local directory (on the Ansible host) containing the Apache Storm (and Apache Zookeeper) distributions; when used, the distribution file (or files in a single-node deployment) will be uploaded to the target nodes from this directory, then unpacked into the installation directory. If this parameter and the `-u, --url` parameter are both defined and error will be thrown
@@ -67,9 +64,8 @@ As an example of how these options might be used, the following command will dow
 
 ```bash
 $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
-    -z="192.168.34.18,192.168.34.19,192.168.34.20" \
-    -i='/Users/tjmcs/Vagrant/dn-zookeeper/.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory' \
-    -d="/data" -u='http://192.168.34.254/apache-storm/apache-storm-1.0.3.tar.gz' \
+    -i='./zookeeper_inventory' -d="/data" \
+    -u='http://192.168.34.254/apache-storm/apache-storm-1.0.3.tar.gz' \
     -y='http://192.168.34.254/centos' provision
 ```
 
