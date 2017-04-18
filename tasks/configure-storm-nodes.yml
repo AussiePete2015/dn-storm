@@ -1,7 +1,7 @@
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
 - set_fact:
-    strm_nodes: "{{storm_nodes | map('extract', hostvars, [('ansible_' + storm_iface), 'ipv4', 'address']) | list}}"
+    strm_nodes: "{{storm_nodes | map('extract', hostvars, [('ansible_' + data_iface), 'ipv4', 'address']) | list}}"
 - block:
   - name: Configure storm to use ane external zookeeper cluster (if defined)
     lineinfile:
@@ -57,12 +57,12 @@
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"
       regexp: "^(.*)storm.local.hostname:"
-      line: "storm.local.hostname: {{storm_addr}}"
+      line: "storm.local.hostname: {{data_addr}}"
   - name: Set UI host for storm node(s)
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"
       regexp: "^(.*)ui.host:"
-      line: "ui.host: {{storm_addr}}"
+      line: "ui.host: {{data_addr}}"
   - name: Setup UI options for storm node(s)
     lineinfile:
       dest: "{{storm_dir}}/conf/storm.yaml"

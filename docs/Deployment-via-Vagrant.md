@@ -14,7 +14,47 @@ $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
     -i='./zookeeper_inventory' up
 ```
 
-This command will create a three-node Storm cluster, configuring those nodes to work with the Zookeeper ensemble described in the static inventory that we are passing into the `vagrant ... up` command shown here using the `-i, --inventory-file` flag. The argument passed in using this flag **must** point to an Ansible (static) inventory file containing the information needed to connect to the nodes in that Zookeeper ensemble (so that the playbook can gather facts about those nodes to configure the Storm nodes to talk to them correctly). If this second inventory file is not provided when building a multi-node cluster, or if the file passed in does not describe a valid Zookeeper ensemble (one with an odd number of nodes, where the number of nodes is between three and seven, and where none of the nodes in that cluster are also being used as part of the Storm cluster we are deploying here), then an error will be thrown by the `vagrant` command.
+This command will create a three-node Storm cluster, configuring those nodes to work with the Zookeeper ensemble described in the static inventory that we are passing into the `vagrant ... up` command shown here using the `-i, --inventory-file` flag. The argument passed in using this flag **must** point to an Ansible (static) inventory file containing the information needed to connect to the nodes in that Zookeeper ensemble (so that the playbook can gather facts about those nodes to configure the Storm nodes to talk to them correctly). As was mentioned in the discussion of provisioning a Storm cluster using a static inventory file in the [Deployment-Scenarios.md](Deployment-Scenarios.md) file, this inventory file could just contain a list of the nodes in the Zookeeper cluster and the information needed to connect to those nodes:
+
+```bash
+$ cat zookeeper_inventory
+# example inventory file for a clustered deployment
+
+192.168.34.18 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2200 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.18/virtualbox/private_key'
+192.168.34.19 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2201 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.19/virtualbox/private_key'
+192.168.34.20 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2202 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.20/virtualbox/private_key'
+
+$
+```
+
+Or it could contain the combined information for the members of the Zookeeper ensemble and Storm cluster, with the hosts broken out into `storm` and `zookeeper` host groups:
+
+```bash
+$ cat combined_inventory
+# example combined inventory file for clustered deployment
+
+192.168.34.48 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2203 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.48/virtualbox/private_key'
+192.168.34.49 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2204 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.49/virtualbox/private_key'
+192.168.34.50 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2205 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.50/virtualbox/private_key'
+192.168.34.18 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2200 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.18/virtualbox/private_key'
+192.168.34.19 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2201 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.19/virtualbox/private_key'
+192.168.34.20 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2202 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.20/virtualbox/private_key'
+
+[storm]
+192.168.34.8
+192.168.34.9
+192.168.34.10
+
+[zookeeper]
+192.168.34.18
+192.168.34.19
+192.168.34.20
+
+```
+
+If the inventory file is similar to the first example, then all of the nodes in that inventory file will be assumed to be a part of the Zookeeper ensemble if that file is passed in using the `-i, --inventory-file` flag. If the inventory file passed in using the `-i, --inventory-file` flag is more like the second example, then only the hosts in the `zookeeper` host group list will be included in the `zookeeper` host group that is build dynamically within the `ansible-playbook` run that is triggered by the `vagrant ... up` or `vagrant ... provision` command.
+
+If a Zookeeper inventory file is not provided when building a multi-node cluster, or if the file passed in does not describe a valid Zookeeper ensemble (one with an odd number of nodes, where the number of nodes is between three and seven, and where none of the nodes in that cluster are also being used as part of the Storm cluster we are deploying here), then an error will be thrown by the `vagrant` command.
 
 In terms of how it all works, the [Vagrantfile](../Vagrantfile) is written in such a way that the following sequence of events occurs when the `vagrant ... up` command shown above is run:
 
@@ -42,7 +82,7 @@ To provision the machines that were created above and configure those machines a
 
 ```bash
 $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
-    -i='./zookeeper_inventory' provision
+    -i='./combined_inventory' provision
 ```
 
 That command will attach to the named instances and run the playbook in this repository's [site.yml](../site.yml) file on those node, resulting in a Storm cluster consisting of the nodes that were created in the `vagrant ... up --no-provision` command that was shown, above.
@@ -64,7 +104,7 @@ As an example of how these options might be used, the following command will dow
 
 ```bash
 $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
-    -i='./zookeeper_inventory' -d="/data" \
+    -i='./combined_inventory' -d="/data" \
     -u='http://192.168.34.254/apache-storm/apache-storm-1.0.3.tar.gz' \
     -y='http://192.168.34.254/centos' provision
 ```

@@ -18,7 +18,8 @@ The following parameters can be used to control the `ansible-playbook` run itsel
 * **`storm_version`**: the version of Storm that should be downloaded; used to switch versions when the distribution is downloaded using the default `storm_url`, which is defined in the [vars/storm.yml](../vars/storm.yml) file
 * **`zookeeper_url`**: the URL that the Apache Zookeeper distribution should be downloaded from for single-node Storm deployments
 * **`zookeeper_version`**: the version of Zookeeper that should be downloaded for single-node Storm deployments; used to switch versions when the distribution is downloaded using the default `zookeeper_url`, which is defined in the [vars/storm.yml](../vars/storm.yml) file
-* **`cloud`**: the name of the cloud type being targeted (`aws`, `osp`, or `vagrant`); this controls whether the inventory information for the playbook run is assumed to be passed in dynamically (when the cloud is `aws` or `osp`) or statically (if the cloud type is `vagrant`)
+* **`inventory_type`**: how the inventory is being managed (either 'static' or 'dynamic')
+* **`cloud`**: if the inventory is being managed dynamically, this parameter is used to indicate the type of target cloud for the deployment (either `aws` or `osp`); this controls how the [build-app-host-groups](../common-roles/build-app-host-groups) common role retrieves the list of target nodes for the deployment
 * **`host_inventory`**: used to pass in a list of the nodes targeted for deployment (in the static inventory use case) or a union of the application, tenant, project, and domain tags (in the dynamic inventory use case)
 * **`local_path`**: used to pass in the local path (on the Ansible host) to a directory containing the Storm distribution file; the distribution file will be uploaded from this directory to the target hosts and unpacked into the `storm_dir` directory (note that in the case of a single-node deployment, the Zookeeper distribution file will also be uploaded from this directory and unpacked into the associated `zookeeper_dir` directory). The filename that will be uploaded will be the basename of the defined `storm_url` (and the corresponding basename of the `zookeeper_url` for single-node deployments)
 * **`private_key_path`**: used to define the directory where the private keys are maintained when the inventory for the playbook run is being managed dynamically; in these cases, the scripts used to retrieve the dynamic inventory information will return the names of the keys that should be used to access each node, and the playbook will search the directory specified by this parameter to find the corresponding key files. If this value is not specified then the current working directory will be searched for those keys by default
@@ -38,8 +39,8 @@ These parameters are used to control the deployment process itself, defining thi
 ## Parameters used to configure the Storm nodes
 These parameters are used configure the Storm nodes themselves during a playbook run, defining things like the interfaces that Storm should be listening on for requests and the directory where Storm should store its data.
 
-* **`storm_iface`**: the name of the interface that the Storm nodes in the cluster should use when talking with each other, when talking to the Zookeeper ensemble, and for user requests. An interface of this name must exist for the playbook to run successfully, and if unspecified a value of `eth0` is assumed
-* **`iface_description_array`**: this parameter can be used in place of the `storm_iface ` parameter described above, and it provides users with the ability to specify a description of that interface rather than identifying it by name (more on this, below)
+* **`data_iface`**: the name of the interface that the Storm nodes in the cluster should use when talking with each other, when talking to the Zookeeper ensemble, and for user requests. An interface of this name must exist for the playbook to run successfully, and if unspecified a value of `eth0` is assumed
+* **`iface_description_array`**: this parameter can be used in place of the `data_iface ` parameter described above, and it provides users with the ability to specify a description of that interface rather than identifying it by name (more on this, below)
 * **`storm_data_dir`**: the name of the directory that Storm should use to store its data; defaults to `/var/lib` if unspecified. If necessary, this directory will be created as part of the playbook run
 * **`nimbus_childopts`**: used to set the JVM options for the master; defaults to `-Xmx1024m` if unspecified
 * **`ui_port`**: used to set the `ui.port` property for the master node; defaults to `9797` if unspecified
@@ -47,7 +48,7 @@ These parameters are used configure the Storm nodes themselves during a playbook
 * **`worker_childopts`**: used to set the JVM options for the task workers; defaults to `-Xmx768m` if unspecified
 
 ## Interface names vs. interface descriptions
-For some operating systems on some platforms, it can be difficult (if not impossible) to determine the name of the interface that should be passed into the playbook using the `storm_iface` parameter that we described, above. In those situations, the playbook in this repository provides an alternative; specifying that interface using the `iface_description_array` parameter instead.
+For some operating systems on some platforms, it can be difficult (if not impossible) to determine the name of the interface that should be passed into the playbook using the `data_iface` parameter that we described, above. In those situations, the playbook in this repository provides an alternative; specifying that interface using the `iface_description_array` parameter instead.
 
 Put quite simply, the `iface_description_array` lets you specify a description for each of the networks that you are interested in, then retrieve the names of those networks on each machine in a variable that can be used elsewhere in the playbook. To accomplish this, the `iface_description_array` is defined as an array of hashes (one per interface), each of which include the following fields:
 
@@ -59,10 +60,10 @@ With these values in hand, the playbook will search the available networks on ea
 
 ```json
     iface_description_array: [
-        { as_var: 'storm_iface', type: 'cidr', val: '192.168.34.0/24' },
+        { as_var: 'data_iface', type: 'cidr', val: '192.168.34.0/24' },
     ]
 ```
 
-the playbook will return the name of the network that matches the CIDR `192.168.34.0/24` as the value of the `storm_iface` fact. This fact can then be used later in the playbook to correctly configure the nodes to talk to each other and listen on the proper interface for user requests.
+the playbook will return the name of the network that matches the CIDR `192.168.34.0/24` as the value of the `data_iface` fact. This fact can then be used later in the playbook to correctly configure the nodes to talk to each other and listen on the proper interface for user requests.
 
-It should be noted that if you choose to take this approach when constructing your `ansible-playbook` runs, a matching entry in the `iface_description_array` must be specified for the `storm_iface` network, otherwise the default value of `eth0` will be used for this fact (and the playbook run may result in nodes that are at best misconfigured; if the `eth0` network does not exist then the playbook will fail to run altogether).
+It should be noted that if you choose to take this approach when constructing your `ansible-playbook` runs, a matching entry in the `iface_description_array` must be specified for the `data_iface` network, otherwise the default value of `eth0` will be used for this fact (and the playbook run may result in nodes that are at best misconfigured; if the `eth0` network does not exist then the playbook will fail to run altogether).
