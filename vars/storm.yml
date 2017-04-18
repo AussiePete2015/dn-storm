@@ -9,7 +9,7 @@ storm_url: "http://www-us.apache.org/dist/storm/apache-storm-{{storm_version}}/a
 storm_dir: "/opt/apache-storm"
 storm_package_list: ["java-1.8.0-openjdk", "java-1.8.0-openjdk-devel"]
 storm_data_dir: "/var/lib"
-storm_iface: eth0
+data_iface: eth0
 zookeeper_version: "3.4.9"
 zookeeper_url: "http://www-us.apache.org/dist/zookeeper/zookeeper-{{zookeeper_version}}/zookeeper-{{zookeeper_version}}.tar.gz"
 zookeeper_dir: "/opt/apache-zookeeper"

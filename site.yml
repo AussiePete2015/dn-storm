@@ -18,14 +18,14 @@
         host_group_list:
           - name: storm
           - name: zookeeper
-      when: cloud == 'aws' or cloud == 'osp'
+      when: inventory_type == 'dynamic'
     - include_role:
         name: build-app-host-groups
       vars:
         host_group_list:
           - { name: storm, node_list: "{{host_inventory}}" }
           - { name: zookeeper, inventory_file: "{{zookeeper_inventory_file}}" }
-      when: cloud == "vagrant"
+      when: inventory_type == 'static'
 
 # Collect some Zookeeper related facts
 - name: Gather facts from Zookeeper host group (if defined)
@@ -35,7 +35,7 @@
 # and configure our Storm nodes (note that if more than one node is passed in,
 # those nodes will be configured as a single Storm cluster)
 - name: Install/configure Storm server(s)
-  hosts: storm
+  hosts: storm:&storm_nodes
   gather_facts: no
   vars_files:
     - vars/storm.yml
@@ -87,8 +87,8 @@
   # deploy and configure Storm
   roles:
     - role: get-iface-addr
-      iface_name: "{{storm_iface}}"
-      as_fact: "storm_addr"
+      iface_name: "{{data_iface}}"
+      as_fact: "data_addr"
     - role: setup-web-proxy
     - role: add-local-repository
       yum_repository: "{{yum_repo_url}}"
