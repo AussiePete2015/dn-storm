@@ -40,6 +40,7 @@
   vars:
     - combined_package_list: "{{ (default_packages|default([])) | union(storm_package_list) | union((install_packages_by_tag|default({})).storm|default([])) }}"
     - zookeeper_nodes: "{{groups['zookeeper']}}"
+    - storm_nodes: "{{groups['storm']}}"
   pre_tasks:
     # first, load the local variables file (if one was defined); this will initialize
     # the variables used in our playbook (and override any values in the 'vars/storm.yml'
