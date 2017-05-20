@@ -1,31 +1,29 @@
+#!/usr/bin/env ansible-playbook
+#
 # (c) 2017 DataNexus Inc.  All Rights Reserved
 ---
 # Build our storm and zookeeper host groups
 - name: Create storm and zookeeper host groups
-  hosts: "{{host_inventory}}"
+  hosts: localhost
   gather_facts: no
   tasks:
-    # load the 'local variables file', if one was defined, to get any variables
-    # we might need from that file when constructing our host groups
-    - name: Load local variables file
-      include_vars:
-        file: "{{local_vars_file}}"
-      when: not (local_vars_file is undefined or local_vars_file is none or local_vars_file | trim == '')
-    # then, build our host groups
-    - include_role:
-        name: build-app-host-groups
-      vars:
-        host_group_list:
-          - name: storm
-          - name: zookeeper
-      when: inventory_type == 'dynamic'
-    - include_role:
-        name: build-app-host-groups
-      vars:
-        host_group_list:
-          - { name: storm, node_list: "{{host_inventory}}" }
-          - { name: zookeeper, inventory_file: "{{zookeeper_inventory_file}}" }
-      when: inventory_type == 'static'
+    # if we're using dynamic provisioning; build the host groups from the
+    # meta-data associated with the matching nodes in the selected cloud
+    - block:
+      # load the 'local variables file', if one was defined, to get any variables
+      # we might need from that file when constructing our host groups
+      - name: Load local variables file
+        include_vars:
+          file: "{{local_vars_file}}"
+        when: not (local_vars_file is undefined or local_vars_file is none or local_vars_file | trim == '')
+      # then, build our host groups
+      - include_role:
+          name: build-app-host-groups
+        vars:
+          host_group_list:
+            - name: storm
+            - name: zookeeper
+      when: cloud is defined and (cloud == 'aws' or cloud == 'osp')
 
 # Collect some Zookeeper related facts
 - name: Gather facts from Zookeeper host group (if defined)
@@ -35,12 +33,13 @@
 # and configure our Storm nodes (note that if more than one node is passed in,
 # those nodes will be configured as a single Storm cluster)
 - name: Install/configure Storm server(s)
-  hosts: storm:&storm_nodes
+  hosts: storm
   gather_facts: no
   vars_files:
     - vars/storm.yml
   vars:
     - combined_package_list: "{{ (default_packages|default([])) | union(storm_package_list) | union((install_packages_by_tag|default({})).storm|default([])) }}"
+    - zookeeper_nodes: "{{groups['zookeeper']}}"
   pre_tasks:
     # first, load the local variables file (if one was defined); this will initialize
     # the variables used in our playbook (and override any values in the 'vars/storm.yml'

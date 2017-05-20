@@ -2,7 +2,7 @@
 Description=Apache Storm
 Documentation=http://storm.apache.org/releases/1.0.2/index.html
 Requires=network.target remote-fs.target
-After=network.target remote-fs.target
+After=network.target remote-fs.target syslog.target
 
 [Service]
 Type=simple

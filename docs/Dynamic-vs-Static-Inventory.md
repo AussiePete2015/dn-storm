@@ -4,19 +4,32 @@ The first decision to make is when using the playbook in this repository to depl
 ## Managing deployments with static inventory files
 Let's assume that we are planning the deployment of a three-node Storm cluster using the playbook in this repository and we are planning on using a [static inventory file](https://docs.ansible.com/ansible/intro_inventory.html) to control that deployment. In this example (and others like it in this document) we'll assume that we're going to construct a single static inventory file (an INI-like formatted file containing the list of hosts that are targeted by any given playbook run), and then pass that file into the `ansible-playbook` command using the `-i, --inventory-file` command-line flag.
 
-In our discussion of the various deployment scenarios supported by this playbook, we show that deployments of a Storm cluster actually require an associated (assumed to be external) Zookeeper ensemble. For purposes of this discussion, we will focus only on the inventory information associated with the Storm nodes, not on the inventory information associated with the Zookeeper ensemble. So, returning to our example, the inventory file associated with our three-node Storm cluster might look something like this:
+In our discussion of the various deployment scenarios supported by this playbook, we show that deployments of a Storm cluster actually require an associated (assumed to be external) Zookeeper ensemble. For purposes of this discussion, we will focus only on the inventory information associated with the Storm nodes, not on the inventory information associated with the Zookeeper ensemble, but the inventory information for nodes that make up the Zookeeper ensemble must also be provided so that Ansible can connect to those nodes and gather the meta-data that it needs to configure the members of the Storm cluster correctly. So, returning to our example, the inventory file that we use to deploy our three-node Storm cluster might look something like this:
 
 ```bash
-$ cat test-cluster-inventory
+$ cat combined-inventory
 # example inventory file for a clustered deployment
 
+192.168.34.8 ansible_ssh_host=192.168.34.8 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
+192.168.34.9 ansible_ssh_host=192.168.34.9 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
+192.168.34.10 ansible_ssh_host=192.168.34.10 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
 192.168.34.48 ansible_ssh_host=192.168.34.48 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
 192.168.34.49 ansible_ssh_host=192.168.34.49 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
 192.168.34.50 ansible_ssh_host=192.168.34.50 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
 
+[storm]
+192.168.34.48
+192.168.34.49
+192.168.34.50
+
+[zookeeper]
+192.168.34.18
+192.168.34.19
+192.168.34.20
+
 $
 ```
-As you can see, our static inventory file consists of a list of the hosts that make up the inventory for our deployment. For each host in this file, we provide a list of the parameters that Ansible will need to connect to that host (INI-file style) as a set of `name=value` pairs. In this example, we've defined the following values for each of the entries in our static inventory file:
+As you can see, our static inventory file consists of a list of the hosts that make up the inventory for our deployment followed by two host groups (the `storm` and `zookeeper` host groups). For each host in this file, we provide a list of the parameters that Ansible will need to connect to that host (INI-file style) as a set of `name=value` pairs. In this example, we've defined the following values for each of the entries in our static inventory file:
 
 * **`ansible_ssh_host`**: the hostname/address that Ansible should use to connect to that host; if not specified, the same hostname/address listed at the start of the line for that entry for that host will be used (in this example we are using IP addresses). This parameter can be important when there are multiple network interfaces on each host and only one of them (an admin network, for example) allows for SSH access
 * **`ansible_ssh_port`**: the port that Ansible should use when connecting to the host via SSH; if not specified, Ansible will attempt to connect using the default SSH port (port 22)
@@ -26,7 +39,7 @@ As you can see, our static inventory file consists of a list of the hosts that m
 With this static inventory file built, it's a relatively simple matter to deploy our Storm cluster using a single `ansible-playbook` command. Examples of these commands are shown [here](Deployment-Scenarios.md).
 
 ## Managing deployments using dynamic inventory scripts
-For both AWS and OpenStack environments, the playbook in this repository supports the use of a [dynamic inventory](https://docs.ansible.com/ansible/intro_dynamic_inventory.html) to control deployments to those environments. This is accomplished by making use of the [build-app-host-groups](../common-roles/build-app-host-groups) common role, which in turn uses the dynamic inventory scripts that are included for these two types of environments in the [common-utils](../common-utils) submodule. These scripts return lists of the nodes that should be targeted by a given playbook run, and the [build-app-host-groups](../common-roles/build-app-host-groups) common role filters those lists, based on the tags that are assigned them and the tags that are included in the `ansible-playbook` command, to construct the host groups needed for a given deployment. This provides an attractive alternative to building static inventory files to control the deployment process in these environments, since the meta-data needed to determine which nodes should be targeted by a given playbook run is readily available in the framework itself.
+For both AWS and OpenStack environments, the playbook in this repository supports the use of a [dynamic inventory](https://docs.ansible.com/ansible/intro_dynamic_inventory.html) to control deployments to those environments. This is accomplished by making use of the [build-app-host-groups](../common-roles/build-app-host-groups) common role, which builds the host groups that are needed for the playbook run by filtering the hosts in the AWS or OpenStack environment, based on the tags that are assigned them and the tags that were included in the `ansible-playbook` command. This provides an attractive alternative to building static inventory files to control the deployment process in these environments, since the meta-data needed to determine which nodes should be targeted by a given playbook run is readily available in the framework itself.
 
 The process of using the [build-app-host-groups](../common-roles/build-app-host-groups) common role to control a playbook run starts out by tagging the VMs that are going to be the target of a particular deployment with the following tags:
 
