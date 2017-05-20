@@ -28,10 +28,9 @@ def addr_list_from_inventory_file(inventory_file, group_name)
   inventory_json = JSON.parse(inventory_str)
   inventory_group = inventory_json[group_name]
   # if we found a corresponding group in the inventory file, then
-  # return the hosts list in that group
-  return inventory_group['hosts'] if inventory_group
-  # otherwise, return the keys in the 'hostvars' hash map under the '_meta' hash map
-  inventory_json['_meta']['hostvars'].keys
+  # return the hosts list in that group, otherwise, return the keys
+  # in the 'hostvars' hash map under the '_meta' hash map
+  (inventory_group ? inventory_group['hosts'] : inventory_json['_meta']['hostvars'].keys)
 end
 
 # initialize a few values
@@ -211,7 +210,8 @@ if provisioning_command || ip_required
           print "       provisioning a Storm cluster\n"
           exit 1
         else
-          # parse the inventory file that was passed in and retrieve the list of host addresses from it
+          # parse the inventory file that was passed in and retrieve the list
+          # of zookeeper addresses from it
           zookeeper_addr_array = addr_list_from_inventory_file(options[:inventory_file], 'zookeeper')
           # and check to make sure that an appropriate number of zookeeper addresses were
           # found in the inventory file (the size of the ensemble should be an odd number
@@ -280,30 +280,37 @@ if storm_addr_array.size > 0
     # creating VMs, create a VM for each machine; if we're just provisioning the
     # VMs using an ansible playbook, then wait until the last VM in the loop and
     # trigger the playbook runs for all of the nodes simultaneously using the
-    # `site.yml` playbook
+    # `provision-storm.yml` playbook
     storm_addr_array.each do |machine_addr|
-      # Customize the amount of memory on the VM
-      config.vm.provider "virtualbox" do |vb|
-        vb.memory = "4096"
-      end
       config.vm.define machine_addr do |machine|
+        # disable the default synced folder
+        machine.vm.synced_folder ".", "/vagrant", disabled: true
+        # customize the amount of memory in the VM
+        machine.vm.provider "virtualbox" do |vb|
+          vb.memory = "4096"
+        end
         # setup a private network for this machine
         machine.vm.network "private_network", ip: machine_addr
-
         # if it's the last node in the list if input addresses, then provision
         # all of the nodes simultaneously (if the `--no-provision` flag was not
         # set, of course)
         if machine_addr == storm_addr_array[-1]
-          # now, use the playbook in the `site.yml' file to provision our
-          # nodes with Storm (and configure them as a cluster if there
-          # is more than one node)
+          if options[:inventory_file]
+            if !File.directory?('.vagrant/provisioners/ansible/inventory')
+              mkdir_output = `mkdir -p .vagrant/provisioners/ansible/inventory`
+            end
+            ln_output = `ln -sf #{File.expand_path(options[:inventory_file])} .vagrant/provisioners/ansible/inventory`
+          end
+          # now, use the playbook in the `provision-storm.yml' file to
+          # provision our nodes with Storm (and configure them as a cluster
+          # if there is more than one node)
           machine.vm.provision "ansible" do |ansible|
             # set the limit to 'all' in order to provision all of machines on the
             # list in a single playbook run
             ansible.limit = "all"
-            ansible.playbook = "site.yml"
+            ansible.playbook = "provision-storm.yml"
             ansible.groups = {
-              solf: storm_addr_array
+              storm: storm_addr_array
             }
             ansible.extra_vars = {
               proxy_env: {
@@ -313,13 +320,22 @@ if storm_addr_array.size > 0
                 proxy_password: proxy_password
               },
               data_iface: "eth1",
-              yum_repo_url: options[:yum_repo_url],
-              local_path: options[:local_path],
-              host_inventory: storm_addr_array,
-              reset_proxy_settings: options[:reset_proxy_settings],
-              zookeeper_inventory_file: options[:inventory_file],
-              inventory_type: "static"
             }
+            # if a local path to a directory containing the Storm and Zookeeper
+            # distributions was set, then set an extra variable with that path
+            if options[:local_path]
+              ansible.extra_vars[:local_path] = options[:local_path]
+            end
+            # if a local yum repositiory  was set, then set an extra variable
+            # containing the named repository
+            if options[:yum_repo_url]
+              ansible.extra_vars[:yum_repo_url] = options[:yum_repo_url]
+            end
+            # if the flag to reset the proxy settings was set, then set an extra variable
+            # containing that value
+            if options[:reset_proxy_settings]
+              ansible.extra_vars[:reset_proxy_settings] = options[:reset_proxy_settings]
+            end
             # if defined, set the 'extra_vars[:storm_url]' value to the value that was passed in on
             # the command-line (eg. "https://10.0.2.2/apache-storm-1.0.3.tar.gz")
             if options[:storm_url]

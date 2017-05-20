@@ -24,35 +24,13 @@ $ cat zookeeper_inventory
 192.168.34.19 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2201 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.19/virtualbox/private_key'
 192.168.34.20 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2202 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.20/virtualbox/private_key'
 
-$
-```
-
-Or it could contain the combined information for the members of the Zookeeper ensemble and Storm cluster, with the hosts broken out into `storm` and `zookeeper` host groups:
-
-```bash
-$ cat combined_inventory
-# example combined inventory file for clustered deployment
-
-192.168.34.48 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2203 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.48/virtualbox/private_key'
-192.168.34.49 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2204 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.49/virtualbox/private_key'
-192.168.34.50 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2205 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-storm/.vagrant/machines/192.168.34.50/virtualbox/private_key'
-192.168.34.18 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2200 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.18/virtualbox/private_key'
-192.168.34.19 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2201 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.19/virtualbox/private_key'
-192.168.34.20 ansible_ssh_host=127.0.0.1 ansible_ssh_port=2202 ansible_ssh_user='vagrant' ansible_ssh_private_key_file='/tmp/dn-zookeeper/.vagrant/machines/192.168.34.20/virtualbox/private_key'
-
-[storm]
-192.168.34.8
-192.168.34.9
-192.168.34.10
-
 [zookeeper]
 192.168.34.18
 192.168.34.19
 192.168.34.20
 
+$
 ```
-
-If the inventory file is similar to the first example, then all of the nodes in that inventory file will be assumed to be a part of the Zookeeper ensemble if that file is passed in using the `-i, --inventory-file` flag. If the inventory file passed in using the `-i, --inventory-file` flag is more like the second example, then only the hosts in the `zookeeper` host group list will be included in the `zookeeper` host group that is build dynamically within the `ansible-playbook` run that is triggered by the `vagrant ... up` or `vagrant ... provision` command.
 
 If a Zookeeper inventory file is not provided when building a multi-node cluster, or if the file passed in does not describe a valid Zookeeper ensemble (one with an odd number of nodes, where the number of nodes is between three and seven, and where none of the nodes in that cluster are also being used as part of the Storm cluster we are deploying here), then an error will be thrown by the `vagrant` command.
 
@@ -67,7 +45,7 @@ Once the playbook run triggered by the [Vagrantfile](../Vagrantfile) is complete
 So, to recap, by using a single `vagrant ... up` command we were able to quickly spin up a cluster consisting of of three Storm nodes and configure those nodes as a cluster that is associated with an existing Zookeeper ensemble. A similar `vagrant ... up` command could be used to build a cluster consisting of any number of Storm nodes, provided that a Zookeeper ensemble has already been provisioned that can be associated with the nodes in that cluster.
 
 ## Separating instance creation from provisioning
-While the `vagrant up` commands that are shown above can be used to easily deploy Storm to a single node or to build a Storm cluster consisting of multiple nodes, the [Vagrantfile](../Vagrantfile) included in this distribution also supports separating out the creation of the virtual machine from the provisioning of that virtual machine using the Ansible playbook contained in this repository's [site.yml](../site.yml) file.
+While the `vagrant up` commands that are shown above can be used to easily deploy Storm to a single node or to build a Storm cluster consisting of multiple nodes, the [Vagrantfile](../Vagrantfile) included in this distribution also supports separating out the creation of the virtual machine from the provisioning of that virtual machine using the Ansible playbook contained in this repository's [provision-storm.yml](../provision-storm.yml) file.
 
 To create a set of virtual machines that we plan on using to build a Storm cluster without provisioning Storm to those machines, simply run a command similar to the following:
 
@@ -85,7 +63,7 @@ $ vagrant -s="192.168.34.48,192.168.34.49,192.168.34.50" \
     -i='./combined_inventory' provision
 ```
 
-That command will attach to the named instances and run the playbook in this repository's [site.yml](../site.yml) file on those node, resulting in a Storm cluster consisting of the nodes that were created in the `vagrant ... up --no-provision` command that was shown, above.
+That command will attach to the named instances and run the playbook in this repository's [provision-storm.yml](../provision-storm.yml) file on those node, resulting in a Storm cluster consisting of the nodes that were created in the `vagrant ... up --no-provision` command that was shown, above.
 
 ## Additional vagrant deployment options
 While the commands shown above will install Storm with a reasonable, default configuration from a standard location, there are additional command-line parameters that can be used to control the deployment process triggered by a `vagrant ... up` or `vagrant ... provision` command. Here is a complete list of the command-line flags that can be supported by the [Vagrantfile](../Vagrantfile) in this repository:
