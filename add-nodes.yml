@@ -30,8 +30,9 @@
   hosts: zookeeper
   tasks: []
 
-# and configure our Storm nodes (note that if more than one node is passed in,
-# those nodes will be configured as a single Storm cluster)
+# Then, deploy Storm to the new target nodes (those that don't have a
+# storm service configured on them already) and configure those nodes to
+# join the existing cluster
 - name: Install/configure Storm server(s)
   hosts: storm
   gather_facts: no
@@ -39,8 +40,8 @@
     - vars/storm.yml
   vars:
     - combined_package_list: "{{ (default_packages|default([])) | union(storm_package_list) | union((install_packages_by_tag|default({})).storm|default([])) }}"
-    - zookeeper_nodes: "{{groups['zookeeper']}}"
     - storm_nodes: "{{groups['storm']}}"
+    - zookeeper_nodes: "{{groups['zookeeper']}}"
   pre_tasks:
     # first, initialize the play by loading any `local_vars_file` that may have
     # been passed in, restarting the network on the target nodes (if desired),
@@ -52,6 +53,7 @@
     # list of zk_nodes (the data_iface IP addresses of our zookeeper_nodes)
     - set_fact:
         zk_nodes: "{{(zookeeper_nodes | default([])) | map('extract', hostvars, [('ansible_' + data_iface), 'ipv4', 'address']) | list}}"
-  # now that we have all of the facts we need, provision the input nodes
+  # now that we have all of the facts we need, add the new nodes to the cluster
   roles:
-    - role: provision-nodes
+    - role: add-nodes
+      service_deployed: storm-nimbus
