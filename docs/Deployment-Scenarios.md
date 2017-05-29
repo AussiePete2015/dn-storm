@@ -1,6 +1,6 @@
 # Example deployment scenarios
 
-There are a three basic deployment scenarios that are supported by this playbook. In the first two scenarios (shown below) we'll walk through the deployment of Storm to a single node and the deployment of a multi-node Storm cluster using a static inventory file. Finally, in the third scenario, we will show how the same multi-node Storm cluster deployment shown in the second scenario could be performed using the dynamic inventory scripts for both AWS and OpenStack instead of a static inventory file.
+There are a four basic deployment scenarios that are supported by this playbook. In the first two scenarios (shown below) we'll walk through the deployment of Storm to a single node and the deployment of a multi-node Storm cluster using a static inventory file. In the third scenario, we will show how the same multi-node Storm cluster deployment shown in the second scenario could be performed using the dynamic inventory scripts for both AWS and OpenStack instead of a static inventory file. Finally, in the last scenario we'll walk through the process of "growing" an existing Storm cluster by adding nodes to it.
 
 ## Scenario #1: deploying Storm to a single node
 While this is the simplest of the deployment scenarios that are supported by this playbook, it is more than likely that deployment of Storm to a single node is really only only useful for very small workloads or deployments of simple test environments. Nevertheless, we will start our discussion with this deployment scenario since it is the simplest.
@@ -35,12 +35,15 @@ So, assuming that we've already deployed a three-node Zookeeper ensemble separat
 $ cat combined-inventory
 # example inventory file for a clustered deployment
 
-192.168.34.8 ansible_ssh_host=192.168.34.8 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
-192.168.34.9 ansible_ssh_host=192.168.34.9 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
-192.168.34.10 ansible_ssh_host=192.168.34.10 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/kafka_cluster_private_key'
 192.168.34.48 ansible_ssh_host=192.168.34.48 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
 192.168.34.49 ansible_ssh_host=192.168.34.49 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
 192.168.34.50 ansible_ssh_host=192.168.34.50 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
+192.168.34.51 ansible_ssh_host=192.168.34.51 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
+192.168.34.52 ansible_ssh_host=192.168.34.52 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/storm_cluster_private_key'
+
+192.168.34.18 ansible_ssh_host=192.168.34.8 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/zk_cluster_private_key'
+192.168.34.19 ansible_ssh_host=192.168.34.9 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/zk_cluster_private_key'
+192.168.34.20 ansible_ssh_host=192.168.34.10 ansible_ssh_port=22 ansible_ssh_user='cloud-user' ansible_ssh_private_key_file='keys/zk_cluster_private_key'
 
 [storm]
 192.168.34.48
@@ -136,3 +139,63 @@ $ AWS_PROFILE=datanexus_west ansible-playbook -e "{ \
 ```
 
 As you can see, these two commands only in terms of the environment variable defined at the beginning of the command-line used to provision to the AWS environment (`AWS_PROFILE=datanexus_west`) and the value defined for the `cloud` variable (`osp` versus `aws`). In both cases the result would be a set of nodes deployed as a Storm cluster, with those nodes configured to talk to each other through the associated (assumed to already be deployed) Zookeeper ensemble. The number of nodes in the Storm cluster will be determined (completely) by the number of nodes in the OpenStack or AWS environment that have been tagged with a matching set of `application`, `tenant`, `project` and `domain` tags.
+
+## Scenario #4: adding nodes to a multi-node Storm cluster
+When adding nodes to an existing Storm cluster, we must be careful of a couple of things things:
+
+* We don't want to redeploy Storm to the existing nodes in the cluster, only to the new nodes we are adding
+* We want to make sure the nodes we are adding to the cluster are configured properly to join that cluster
+
+To make this process as simple as possible (and ensure that there is no danger of reprovisioning the nodes in the existing cluster when attempting to add new nodes to it), we have actually separated out the plays that are used to add nodes to an existing cluster into a separate playbook (the [add-nodes.yml](./add-nodes.yml) file in this repository).
+
+It is critical that the same configuration parameters be passed in during the process of adding new nodes to the cluster as were passed in when building the cluster initially. Storm is not very tolerant of differences in configuration between members of a cluster, so we will want to avoid those situations. The easiest way to manage this is to use a *local inventory file* to manage the configuration parameters that are used for a given cluster, then pass in that file as an argument to the `ansible-playbook` command that you are running to add nodes to that cluster. That said, in the dynamic inventory examples we show (below) we will define the configuration parameters that were set to non-default values in the previous playbook runs as extra variables that are passed into the `ansible-playbook` command on the command-line for clarity.
+
+To provide a couple of examples of how this process of growing a cluster works, we would first like to walk through the process of adding two new nodes to the existing cluster that was created using the `combined-inventory` (static) inventory file, above. The first step would be to edit the static inventory file and add the two new nodes to the `storm` host group, then save the resulting file. The host groups defined in the `combined-inventory` file shown above would look like this after those edits:
+
+```
+[storm]
+192.168.34.48
+192.168.34.49
+192.168.34.50
+192.168.34.51
+192.168.34.52
+
+[zookeeper]
+192.168.34.18
+192.168.34.19
+192.168.34.20
+```
+
+(note that we have only shown the tail of that file; the hosts defined at the start of the file would remain the same). With the new static inventory file in place, the playbook command that we would run to add the two new nodes listed in the updated inventory file to our existing cluster would look something like this:
+
+```bash
+$ ./add-nodes.yml -i combined-inventory -e "{ \
+      local_vars_file: 'test-cluster-deployment-params.yml' \
+    }"
+```
+
+As you can see, this is essentially the same command we ran previously to provision our cluster initially in the static inventory scenario. The only change to the previous command are that we are using a different playbook (the [add-nodes.yml](../add-nodes.yml) playbook instead of the [provision-storm.yml](../provision-storm.yml) playbook).
+
+To add new nodes to an existing Storm cluster in an AWS or OpenStack environment, we would simply create the new nodes we want to add in that environment and tag them appropriately (using the same `Tenant`, `Application`, `Project`, and `Domain` tags that we used when creating our initial cluster). With those new machines tagged appropriately, the command used to add a new set of nodes to an existing cluster in an OpenStack environment would look something like this:
+
+```bash
+$ ansible-playbook -e "{ \
+        application: storm, cloud: osp, \
+        tenant: labs, project: projectx, domain: preprod, \
+        private_key_path: './keys', data_iface: eth0, api_iface: eth1, \
+        storm_data_dir: '/data' \
+    }" add-nodes.yml
+```
+
+The only difference when adding nodes to an AWS environment would be the environment variable that needs to be set at the beginning of the command-line (eg. `AWS_PROFILE=datanexus_west`) and the cloud value that we define within the extra variables that are passed into that `ansible-playbook` command (`aws` instead of `osp`):
+
+```bash
+$ AWS_PROFILE=datanexus_west ansible-playbook -e "{ \
+        application: storm, cloud: aws, \
+        tenant: labs, project: projectx, domain: preprod, \
+        private_key_path: './keys', data_iface: eth0, api_iface: eth1, \
+        storm_data_dir: '/data' \
+    }" add-nodes.yml
+```
+
+As was the case with the static inventory example shown above, the command shown here for adding new nodes to an existing cluster in an AWS or OpenStack cloud (using tags and dynamic inventory) is essentially the same command that was used when deploying the initial cluster, but we are using a different playbook (the [add-nodes.yml](../add-nodes.yml) playbook instead of the [provision-storm.yml](../provision-storm.yml) playbook).
